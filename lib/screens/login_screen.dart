@@ -11,9 +11,9 @@ class LoginScreen extends StatefulWidget {
 
 class _LoginScreenState extends State<LoginScreen> {
   final _formKey = GlobalKey<FormState>();
-  final _authService = AuthService(); // Use the new service
+  final _authService = AuthService();
 
-  final TextEditingController _emailController = TextEditingController();
+  final TextEditingController _phoneController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
 
   bool _isLoading = false;
@@ -25,13 +25,19 @@ class _LoginScreenState extends State<LoginScreen> {
     setState(() => _isLoading = true);
 
     try {
-      await _authService.signIn(
-        _emailController.text.trim(),
+      // 1. Format phone number (Ensuring + prefix)
+      final phone = _phoneController.text.trim();
+      final formattedPhone = phone.startsWith('+') ? phone : '+$phone';
+
+      // 2. Attempt Sign In
+      await _authService.signInWithPhoneAndPassword(
+        formattedPhone,
         _passwordController.text.trim(),
       );
 
       if (!mounted) return;
-      // Navigate to the root (which will determine Home based on metadata)
+
+      // 3. Navigate to Home
       Navigator.pushReplacementNamed(context, '/');
 
     } on AuthException catch (e) {
@@ -55,7 +61,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
   @override
   void dispose() {
-    _emailController.dispose();
+    _phoneController.dispose();
     _passwordController.dispose();
     super.dispose();
   }
@@ -63,14 +69,13 @@ class _LoginScreenState extends State<LoginScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF6F7FB), // Consistent background
+      backgroundColor: const Color(0xFFF6F7FB),
       body: Center(
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(24.0),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              // Logo or App Icon
               const Icon(Icons.record_voice_over_rounded, size: 80, color: Colors.indigo),
               const SizedBox(height: 16),
               const Text(
@@ -80,7 +85,6 @@ class _LoginScreenState extends State<LoginScreen> {
               const Text("JNTUGV Leave Management System", style: TextStyle(color: Colors.grey)),
               const SizedBox(height: 40),
 
-              // Login Card
               Card(
                 elevation: 0,
                 shape: RoundedRectangleBorder(
@@ -93,14 +97,18 @@ class _LoginScreenState extends State<LoginScreen> {
                     key: _formKey,
                     child: Column(
                       children: [
+                        // --- PHONE FIELD ---
                         _buildTextField(
-                          controller: _emailController,
-                          label: "Email Address",
-                          icon: Icons.email_outlined,
-                          keyboardType: TextInputType.emailAddress,
-                          validator: (v) => (v == null || !v.contains('@')) ? 'Enter a valid email' : null,
+                          controller: _phoneController,
+                          label: "Phone Number",
+                          hint: "+91 9876543210",
+                          icon: Icons.phone_android,
+                          keyboardType: TextInputType.phone,
+                          validator: (v) => (v == null || v.length < 10) ? 'Enter a valid phone number' : null,
                         ),
                         const SizedBox(height: 20),
+
+                        // --- PASSWORD FIELD ---
                         _buildTextField(
                           controller: _passwordController,
                           label: "Password",
@@ -110,9 +118,12 @@ class _LoginScreenState extends State<LoginScreen> {
                             icon: Icon(_obscurePassword ? Icons.visibility_off : Icons.visibility),
                             onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
                           ),
-                          validator: (v) => (v == null || v.length < 6) ? 'Password too short' : null,
+                          validator: (v) => (v == null || v.length < 6) ? 'Password must be at least 6 characters' : null,
                         ),
+
                         const SizedBox(height: 30),
+
+                        // --- LOGIN BUTTON ---
                         SizedBox(
                           width: double.infinity,
                           height: 55,
@@ -145,6 +156,7 @@ class _LoginScreenState extends State<LoginScreen> {
     required TextEditingController controller,
     required String label,
     required IconData icon,
+    String? hint,
     bool obscureText = false,
     Widget? suffixIcon,
     TextInputType? keyboardType,
@@ -157,6 +169,7 @@ class _LoginScreenState extends State<LoginScreen> {
       validator: validator,
       decoration: InputDecoration(
         labelText: label,
+        hintText: hint,
         prefixIcon: Icon(icon, color: Colors.indigo),
         suffixIcon: suffixIcon,
         border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
